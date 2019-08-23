@@ -16,6 +16,6 @@ Contained in the main .py file are:
 
 -- The function "output" which calls those subroutines and produces the modelled power spectra, lag-frequency spectra and lag-energy spectra.
 
-To reproduce the plots found in MDDM18, just download and run spectral_timing_model_MDDM18.py!
+To reproduce the plots found in MDDM18, just download, unzip the git, unzip GX_data.tar.gz into the same directory, and run spectral_timing_model_MDDM18.py!
 
 
