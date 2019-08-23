@@ -9,6 +9,7 @@ font = {'family' : 'normal',
         'size'   : 11}
 matplotlib.rc('font', **font)
 from matplotlib import gridspec
+import scipy.interpolate as interp
 
 #######################################################################################
 #++++++++++++++++++++Global variables+++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -113,9 +114,9 @@ def poisson_power(s, sbkg, dt):
 
 def ensemble_averaging(s, dt,sbkg, mode):
     '''Given a lightcurve, s, timebinning dt and background sbkg, compute the ensemble-averaged rms-normalized power spectrum.'''
-    '''If mode == 'data', account for the poisson noise. If 'dirty', do not account for poisson noise.'''
-    M =  int(len(s) * dt /M_len)
+    '''If mode == 'clean', account for the poisson noise. If 'dirty', do not account for poisson noise.'''
     di = 2 ** int(log2(M_len/dt))
+    M =  int(len(s) /di)
     s = s[0: M*di]
     s.shape = (M, di)
     
@@ -178,8 +179,8 @@ def Coherence(s, h, dt, sbkg, hbkg, fbins=data_fbins):
     P_s = abs(binned_spectrum(s, dt, sbkg, 'clean')[0])
     P_h = abs(binned_spectrum(h, dt, hbkg, 'clean')[0])
     
-    M =  int(len(s) * dt /M_len)
     di = 2 ** int(log2(M_len/dt))
+    M =  int(len(s) /di)
     
     h = h[0: M*di]
     h.shape = (M, di)
@@ -247,14 +248,15 @@ def Coherence(s, h, dt, sbkg, hbkg, fbins=data_fbins):
     return gamma2, err_gamma2
 
 def FourierLag(s, h, dt, sbkg, hbkg, fbins=data_fbins):
+    '''Compute the fourier time lag between two lightcurves s and h which have time bins dt. Binning consistent with binned_spectrum.'''
     
     P_s = abs(binned_spectrum(s, dt, sbkg, 'clean')[0])
     P_h = abs(binned_spectrum(h, dt, hbkg, 'clean')[0])
     P_s_noisy = abs(binned_spectrum(s, dt, sbkg, 'dirty')[0])
     P_h_noisy = abs(binned_spectrum(h, dt, hbkg, 'dirty')[0])
     
-    M =  int(len(s) * dt /M_len)
     di = 2 ** int(log2(M_len/dt))
+    M =  int(len(s) /di)
     
     h = h[0: M*di]
     h.shape = (M, di)
@@ -343,7 +345,7 @@ def FourierLag(s, h, dt, sbkg, hbkg, fbins=data_fbins):
 #+Importing and processing the power spectra and lags for our lightcurves (from De Marco 2017) here++++++++++++++++++++#
 ########################################################################################################################
 
-s_low = np.genfromtxt('/lightcurves_vsoft_soft_hard/300_700eV', skip_header = 200, skip_footer = 50)
+s_low = np.genfromtxt('lightcurves/300_700eV', skip_header = 200, skip_footer = 37000)
 s_low = s_low[np.logical_not(np.isnan(s_low[:,1]))] / dt_dat
 s_series_obs_low = s_low[:,1]
 s_series_obs_low = s_series_obs_low[:len(s_series_obs_low) - len(s_series_obs_low)%2]
@@ -356,7 +358,7 @@ fP_s_obs_low, fdP_s_obs_low = freqs_binned*P_s_obs_low, freqs_binned*dP_s_obs_lo
 
 #################################################
 
-s_int = np.genfromtxt('/lightcurves_vsoft_soft_hard/700_1500eV', skip_header = 200, skip_footer =50)
+s_int = np.genfromtxt('lightcurves/700_1500eV', skip_header = 200, skip_footer =37000)
 s_int = s_int[np.logical_not(np.isnan(s_int[:,1]))]/ dt_dat
 s_series_obs_int = s_int[:,1]
 s_series_obs_int = s_series_obs_int[:len(s_series_obs_int) - len(s_series_obs_int)%2]
@@ -369,7 +371,7 @@ fP_s_obs_int, fdP_s_obs_int = freqs_binned*P_s_obs_int, freqs_binned*dP_s_obs_in
 
 ##########################################
 
-s_hi = np.genfromtxt('/lightcurves_vsoft_soft_hard/3000_5000eV', skip_header = 200, skip_footer = 50)
+s_hi = np.genfromtxt('lightcurves/3000_5000eV', skip_header = 200, skip_footer = 37000)
 s_hi = s_hi[np.logical_not(np.isnan(s_hi[:,1]))]/ dt_dat
 s_series_obs_hi = s_hi[:,1]
 s_series_obs_hi = s_series_obs_hi[:len(s_series_obs_hi) - len(s_series_obs_hi)%2]
@@ -438,7 +440,6 @@ ax6.errorbar(freqs_binned, taus_HL, dtaus_HL, fmt = 'o', color = 'darkblue', eco
 def f_kep(r):
     return c / (2*pi*R_g*(r**(3./2) + a))
 
- 
 def f_alpha(r, B, m):
     return B * r**-m * c / (2*pi*R_g*(r**(3./2) + a))
 
@@ -589,8 +590,10 @@ def Imcomp(freqs, prop_spectra, truelags, weights_1, weights_2, weights_refl_1, 
     return Imcomp
 
 def transferfn(r_disc, r_o, dt_sim = 2**-13):
-    N_disc = 200
-    N_phi = 200
+
+    '''Compute the point-illumination transfer function .'''
+    N_disc = 2500
+    N_phi = 2500
     dphi = 2*pi / N_phi
     taus = np.arange(0, M_len, dt_sim)
     
@@ -613,6 +616,7 @@ def transferfn(r_disc, r_o, dt_sim = 2**-13):
     return TF_raw
     
 def TFrebin(TF_raw,fbins, dt_sim=2**-13):
+    '''Rebin the transfer function and exclue those parts of the TF which fall outside the range of the data.'''
     N_freq = 2 ** int(log2(M_len/dt_sim))
     freqs = abs(fourier.fftfreq(N_freq, dt_sim))[1:N_freq/2+1]
     
@@ -640,13 +644,13 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     drs = [(r_bins[i] -r_bins[i+1]) for i in range(len(r_bins)-1)]    
     
     '''Set up the raw frequency range at which we will compute our power spectra and lag-frequency spectra.'''
-    '''This variable (freqs) is updated several times to save on computations, but we keep the same variable name for conciseness. Naughty, I know, sorry!'''
+    '''This variable (freqs) is updated several times to save on computations, but we keep the same variable name for conciseness.'''
     N_freq = 2 ** int(log2(M_len/dt_sim))
     freqs = abs(fourier.fftfreq(N_freq, dt_sim))[:N_freq/2+1]
     
     
-    '''nustar'''
-    data_raw_NS = np.genfromtxt('/home/raad/PhD/Dropbox/Code/GX339_fitting/NuStar_unabs_model.qdp', skip_header = 3)
+    '''nustar fit SED data'''
+    data_raw_NS = np.genfromtxt('spectral_model_fits/NuStar_unabs_model.qdp', skip_header = 3)
     
     E_raw_NS, dE_raw_NS, F_all_raw_NS, F_disc_raw_NS, F_soft_raw_NS, F_hard_raw_NS, F_refl_raw_soft_NS, F_refl_raw_hard_NS =\
         data_raw_NS[:,0], data_raw_NS[:,1], data_raw_NS[:,2], data_raw_NS[:,3], data_raw_NS[:,4], data_raw_NS[:,5], data_raw_NS[:,7], data_raw_NS[:,6]
@@ -666,21 +670,37 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     ##################################################################################################################
     
     
-    '''XMM'''
-    data_raw = np.genfromtxt('/home/raad/PhD/Dropbox/Code/GX339_fitting/XMM_unabs_model.qdp', skip_header = 3)
-    data_abs = np.genfromtxt('/home/raad/PhD/Dropbox/Code/GX339_fitting/XMM_abs_model.qdp', skip_header = 3)
+    '''XMM fit SED'''
+    data_raw = np.genfromtxt('spectral_model_fits/XMM_unabs_model.qdp', skip_header = 3)
+    data_abs = np.genfromtxt('spectral_model_fits/XMM_abs_model.qdp', skip_header = 3)
     X1s = data_abs[:,0]
     Y1s = data_abs[:,2]/data_raw[:,2]
     
-    effarea = np.genfromtxt('/home/raad/PhD/Dropbox/Code/GX339_fitting/eff_XMM.qdp', skip_header = 2)
-    X2s = effarea[:,0]
-    Y2s = effarea[:,1]
+    rmf_energs = np.genfromtxt('redistribution_matrix/rmf_energs')
+    rmf_chanenergs =np.genfromtxt('redistribution_matrix/rmf_chanenergs')
+    rmf_raws = np.load('redistribution_matrix/rmf_raws.npy')
+    xx, yy = np.meshgrid(rmf_chanenergs, rmf_energs)
+    rmf_func = interp.interp2d(rmf_chanenergs, rmf_energs, rmf_raws)
     
     E_raw, dE_raw, F_all_raw, F_disc_raw, F_soft_raw, F_hard_raw, F_refl_raw_soft, F_refl_raw_hard =\
         data_raw[:,0], data_raw[:,1], data_raw[:,2], data_raw[:,3], data_raw[:,4], data_raw[:,5], data_raw[:,7], data_raw[:,6]
     
     F_all_raw, F_disc_raw, F_soft_raw, F_hard_raw, F_refl_raw_soft, F_refl_raw_hard = \
                      F_all_raw/(E_raw), F_disc_raw/E_raw, F_soft_raw/(E_raw),  F_hard_raw/(E_raw), F_refl_raw_soft/(E_raw), F_refl_raw_hard/(E_raw)
+    
+    absorption = np.interp(E_raw, X1s, Y1s)
+    rmfs = rmf_func(E_raw, E_raw)
+    rmfs = np.transpose(rmfs)
+    
+    for i in range(len(rmfs[:,0])):
+        if not np.sum(rmfs[i])==0:
+            rmfs[i] = rmfs[i] / np.sum(rmfs[i])
+        
+    F_disc_raw = np.dot(F_disc_raw*absorption,rmfs)
+    F_hard_raw = np.dot(F_hard_raw*absorption, rmfs)
+    F_soft_raw = np.dot(F_soft_raw*absorption, rmfs)
+    F_refl_raw_hard = np.dot(F_refl_raw_hard*absorption, rmfs)
+    F_refl_raw_soft = np.dot(F_refl_raw_soft*absorption, rmfs)
     
     bins = np.logspace(-1, 0.8, 80)
     digitized = np.digitize(E_raw, bins)
@@ -702,13 +722,6 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     F_refl_hard = F_refl_hard[np.logical_not(np.isnan(E_range))]
     E_range = E_range[np.logical_not(np.isnan(E_range))]
     
-    
-    absorption = np.interp(E_range, X1s, Y1s)
-    effectiveareas = np.interp(E_range, X2s, Y2s)
-    
-    F_disc, F_hard, F_soft, F_refl_soft, F_refl_hard =\
-        F_disc*effectiveareas*absorption, F_hard*effectiveareas*absorption,\
-        F_soft*effectiveareas*absorption, F_refl_soft*effectiveareas*absorption, F_refl_hard*effectiveareas*absorption
     
     '''The indices of those energies (in E_range) at the max and min limits of the energy bands of interest.'''
     i_Elow_min, i_Elow_max = min(np.argwhere(E_range > Elow_min))[0], min(np.argwhere(E_range > Elow_max))[0]
@@ -780,8 +793,8 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     i_DS = min(np.argwhere(rs < r_DS))[0]
     r_SH =rs[minimum[1]-1]
     i_SH = min(np.argwhere(rs < r_SH))[0]
-    print i_DS, i_SH
-    
+    print "rDS = {} and rSH = {}".format(r_DS, r_SH)
+    print "iDS = {} and iSH = {}".format(i_DS, i_SH)
     
     '''Compute the emissivity weightings of each annulus relative to other annuli, independently of the energy band.'''
     weightsout = 0
@@ -920,7 +933,6 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     freqs = freqs[1:]
     prop_spectra = real(prop_spectra[:, 1:N_freq/2+1])    
     prop_spectra = np.transpose(prop_spectra)
-    
     
     
     '''Here we select the frequencies at which we will evaluate the final energy-dependent power spectra and lags (freqs_selected) before rebinning at the end.'''
@@ -1103,7 +1115,7 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     imTF = imag(TF) 
     
     
-    data_raw = np.genfromtxt('/lagenergy/O1_lagE_002_03Hz.dat', skip_header = 1)
+    data_raw = np.genfromtxt('lagenergy/O1_lagE_1_30Hz.dat', skip_header = 1)
     E_BDM, dE_BDM = data_raw[:,0], data_raw[:,1]
     
     bins = E_BDM - dE_BDM
@@ -1127,11 +1139,6 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     F_refl_soft = F_refl_soft[np.logical_not(np.isnan(E_range2))]
     F_refl_hard = F_refl_hard[np.logical_not(np.isnan(E_range2))]
     E_range2 = E_range2[np.logical_not(np.isnan(E_range2))]
-    
-    absorption = np.interp(E_range2, X1s, Y1s)
-    effs = np.interp(E_range2, X2s, Y2s)
-    
-    F_disc, F_hard, F_soft, F_refl_soft, F_refl_hard = F_disc*effs*absorption, F_hard*effs*absorption, F_soft*effs*absorption, F_refl_soft*absorption*effs, F_refl_hard*absorption*effs
     
     i_ref_min, i_ref_max = min(np.argwhere(E_range2 >= 0.5))[0], len(E_range2)-1
     
@@ -1337,7 +1344,7 @@ f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
 ax1.set_xscale('log')
 ax1.set_xlabel('E (keV)')
 ax1.set_ylabel('lag(s)')
-data_raw = np.genfromtxt('/lagenergy/O1_lagE_002_03Hz.dat', skip_header = 1)
+data_raw = np.genfromtxt('lagenergy/O1_lagE_002_03Hz.dat', skip_header = 1)
 E_BDM, dE_BDM, slolag, dslolag = data_raw[:,0], data_raw[:,1], data_raw[:,2], data_raw[:,3]
 ax1.errorbar(E_BDM, slolag, dslolag, xerr = dE_BDM, color = 'darkred', label = 'data',alpha = 0.5)
 ax1.fill_between(E_BDM, lag_slo_energy-dlag_slo_energy, lag_slo_energy+dlag_slo_energy, color = 'red', alpha = 1., label = 'model')
@@ -1346,7 +1353,7 @@ ax1.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', dir
 ax2.set_xscale('log')
 ax2.set_xlabel('E $(keV)$')
 ax2.set_ylabel('lag(s)')
-data_raw = np.genfromtxt('/lagenergy/O1_lagE_03_1Hz.dat', skip_header = 1)
+data_raw = np.genfromtxt('lagenergy/O1_lagE_03_1Hz.dat', skip_header = 1)
 E_BDM, dE_BDM, midlag, dmidlag = data_raw[:,0], data_raw[:,1], data_raw[:,2], data_raw[:,3]
 ax2.errorbar(E_BDM, midlag, dmidlag, xerr = dE_BDM, color = 'darkgreen', label = 'data',alpha = 1.)
 ax2.fill_between(E_BDM, lag_mid_energy-dlag_mid_energy, lag_mid_energy+dlag_mid_energy, color = 'green', alpha = 0.5, label = 'model')
@@ -1355,7 +1362,7 @@ ax2.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', dir
 ax3.set_xscale('log')
 ax3.set_xlabel('E $(keV)$')
 ax3.set_ylabel('lag(s)')
-data_raw = np.genfromtxt('/lagenergy/O1_lagE_1_30Hz.dat', skip_header = 1)
+data_raw = np.genfromtxt('lagenergy/O1_lagE_1_30Hz.dat', skip_header = 1)
 E_BDM, dE_BDM, faslag, dfaslag = data_raw[:,0], data_raw[:,1], data_raw[:,2], data_raw[:,3]
 ax3.errorbar(E_BDM, faslag, dfaslag, xerr = dE_BDM, color = 'darkblue', label = 'data',alpha = 1.)
 ax3.fill_between(E_BDM, lag_fas_energy-dlag_fas_energy, lag_fas_energy+dlag_fas_energy, color = 'b', alpha = 0.5, label = 'model')
