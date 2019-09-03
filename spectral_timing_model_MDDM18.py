@@ -80,7 +80,6 @@ r_disc = 400.
 #+Set up the frequency grid on which the power spectra and lag-frequency spectra of the data and model will be binned.+#
 ########################################################################################################################
 
-''''''
 di_dat = 2 ** int(log2(M_len/dt_dat))
 freqs_dat = abs(fourier.fftfreq(di_dat, dt_dat))[1:di_dat/2+1]
 data_fbins = np.logspace(log10(freqs_dat[0]), log10(freqs_dat[-1]), int(log10(freqs_dat[-1]) - log10(freqs_dat[0])) * NfDec)
@@ -434,17 +433,19 @@ ax6.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', dir
 ax6.errorbar(freqs_binned, taus_HL, dtaus_HL, fmt = 'o', color = 'darkblue', ecolor = 'darkblue',capsize = 0)
 
 #######################################################################################
-#++++++++++++++++++++Tools for manipulating and plotting light curves here++++++++++++#
+#+++++++++++++ The model subroutines and main function (output). +++++++++++++++++++++#
 #######################################################################################
 
 def f_kep(r):
+    '''Keplerian frequency at radius r.'''
     return c / (2*pi*R_g*(r**(3./2) + a))
 
 def f_alpha(r, B, m):
+    '''Viscous frequency at radius r.'''
     return B * r**-m * c / (2*pi*R_g*(r**(3./2) + a))
 
 def lorentzian(r, dr, i, f, i_DS, i_SH, r_o, r_i, B_disc, m_disc, B_flow, m_flow, dt, F_vard1, F_vardC, r_vard1, wid1):   
-    
+    '''A power spectrum Lorentzian at radius r given model parameters.'''
     if i < i_DS:
         f_0 = f_alpha(r, B_disc, m_disc)
     else:
@@ -461,13 +462,61 @@ def lorentzian(r, dr, i, f, i_DS, i_SH, r_o, r_i, B_disc, m_disc, B_flow, m_flow
     return P_i
 
 def r_bounds(r_o, r_i, N_r):
+    '''The radial bounds of our hot flow/viscous disc annuli.'''
     return np.logspace( log10(r_o), log10(r_i), N_r + 1 )
 
-def emissivity(r, i, r_o, Amp1, gamma, r_vard1, wid1):
+def emissivity(r, r_o, Amp1, gamma, r_vard1, wid1):
+    '''Emissivity at radius r, given model parameters.'''
     emiss = Amp1 * np.exp(-(r-r_vard1)**2. / (2.*wid1**2.)) + r ** -gamma
     return emiss
 
+def transferfn(r_disc, r_o, dt_sim = 2**-13):
+    '''Compute the point-illumination transfer function between a source at r=0 and a disc extending from r_o to r_disc.'''
+    N_disc = 2500
+    N_phi = 2500
+    dphi = 2*pi / N_phi
+    taus = np.arange(0, M_len, dt_sim)
+    
+    r_bins = r_bounds(r_disc, r_o, N_disc)
+    rs = np.asarray([(r_bins[i+1]+r_bins[i])/2 for i in range(len(r_bins)-1)])
+    drs = [(r_bins[i] -r_bins[i+1]) for i in range(len(r_bins)-1)]
+
+    tf = np.zeros(len(taus))
+    for i in range(N_disc):
+        for j in range(N_phi):
+            t = rs[i] * R_g / c * (1.0 - np.sin(incl)*np.cos(-pi/2. + dphi*j))
+            tindex = int(t/dt_sim)+1
+            f_r = drs[i]/(r_disc-r_o)
+            f_phi = dphi/(2*pi)
+            tf[tindex] += f_r*f_phi
+    
+    N_freq = 2 ** int(log2(M_len/dt_sim))
+    TF_raw = np.conj(fourier.fft(tf)[1:N_freq/2 + 1])
+    
+    return TF_raw
+    
+def TFrebin(TF_raw, fbins, dt_sim=2**-13):
+    '''Rebin the transfer function and exclue those parts of the TF which fall outside the range of the data.'''
+    N_freq = 2 ** int(log2(M_len/dt_sim))
+    freqs = abs(fourier.fftfreq(N_freq, dt_sim))[1:N_freq/2+1]
+    
+    TF_selected = np.array(())
+    
+    inds = np.digitize(freqs, fbins)
+    
+    for i in range(1, inds[-1]+1):
+        if i in inds:
+            i_min = min(np.argwhere(inds == i))[0]
+            i_max = max(np.argwhere(inds == i))[0]
+            TF_selected = np.append(TF_selected, TF_raw[i_min])
+            if i_min != i_max:
+                TF_selected = np.append(TF_selected, TF_raw[i_max])
+                
+    return TF_selected
+   
+
 def PSDCalc(j, k, freqs, prop_spectra, weights, weights_refl, reTF, imTF, TF2, proplag, S_m, D):
+    '''Given propagated power spectra (prop_spectra), compute the apparent power spectra in an energy band with direct weights (weights) and reflected weights (weights_refl).'''
     out = 2 * prop_spectra[j] * np.exp(-S_m*proplag*freqs) * \
                                ( np.cos(2*pi*proplag*freqs) *  (weights[j]*weights[k] + reTF * (weights[j]*weights_refl[k] + weights_refl[j] * weights[k]) +\
                                         TF2 * weights_refl[j]*weights_refl[k]) +\
@@ -476,7 +525,7 @@ def PSDCalc(j, k, freqs, prop_spectra, weights, weights_refl, reTF, imTF, TF2, p
 
     
 def ReCalc(j, k, freqs, prop_spectra, weights_1, weights_2, weights_refl_1, weights_refl_2, reTF, imTF, TF2, proplag, S_m, D):
-
+    '''A subroutine for the function Recomp below.'''
     out = prop_spectra[j] * np.exp(-S_m*proplag*freqs) * \
       (np.cos(2*pi*proplag*freqs) * ( (weights_1[j] * weights_2[k] + weights_1[k] * weights_2[j]) + \
                                  reTF * (weights_1[j] * weights_refl_2[k] +  weights_refl_1[j] * weights_2[k] +\
@@ -488,7 +537,7 @@ def ReCalc(j, k, freqs, prop_spectra, weights_1, weights_2, weights_refl_1, weig
     return out
     
 def ImCalc(j, k, freqs, prop_spectra, weights_1, weights_2, weights_refl_1, weights_refl_2, reTF, imTF, TF2, proplag, S_m, D):
-
+    '''A subroutine for the function Imcomp below.'''
     out = prop_spectra[j] * np.exp(-S_m*proplag*freqs) * \
     (np.sin(2*pi*proplag*freqs) * ( (weights_1[j] * weights_2[k] - weights_1[k] * weights_2[j]) + \
                                 reTF * (weights_1[j] * weights_refl_2[k] +  weights_refl_1[j] * weights_2[k] -\
@@ -501,6 +550,8 @@ def ImCalc(j, k, freqs, prop_spectra, weights_1, weights_2, weights_refl_1, weig
 
 def Recomp(freqs, prop_spectra, truelags, weights_1, weights_2, weights_refl_1, weights_refl_2, L_1_Disc_Nat,L_2_Disc_Nat, reTF, imTF, TF2, S_m,\
            D_DS, D_SH, i_DS, i_SH, weights_refl_base_1 = None, weights_refl_base_2 = None):
+    '''Given propagated power spectra (prop_spectra), compute the real part of the apparent complex spectrum between two energy bands with direct weights (weights1, weights2)
+        reflected weights (weights_refl_1, weights_refl_2), and constant disc flux contributions (L_1_Disc_Nat, L_2_Disc_Nat). '''
     
     Recomp = np.zeros(len(freqs), dtype ='complex')
     
@@ -545,6 +596,9 @@ def Recomp(freqs, prop_spectra, truelags, weights_1, weights_2, weights_refl_1, 
 def Imcomp(freqs, prop_spectra, truelags, weights_1, weights_2, weights_refl_1, weights_refl_2,L_1_Disc_Nat,L_2_Disc_Nat, reTF, imTF, TF2, S_m,\
            D_DS, D_SH, i_DS, i_SH, weights_refl_base_1 = None, weights_refl_base_2 = None): 
     
+    '''Given propagated power spectra (prop_spectra), compute the imaginary part of the apparent complex spectrum between two energy bands with direct weights (weights1, weights2),
+        reflected weights (weights_refl_1, weights_refl_2), and constant disc flux contributions (L_1_Disc_Nat, L_2_Disc_Nat).'''    
+                               
     Imcomp = np.zeros((len(freqs)), dtype ='complex')
     for k in range(N_r):
         Imcomp += prop_spectra[k] * imTF * (weights_1[k]*weights_refl_2[k] - weights_refl_1[k]*weights_2[k])
@@ -589,54 +643,13 @@ def Imcomp(freqs, prop_spectra, truelags, weights_1, weights_2, weights_refl_1, 
     
     return Imcomp
 
-def transferfn(r_disc, r_o, dt_sim = 2**-13):
 
-    '''Compute the point-illumination transfer function .'''
-    N_disc = 2500
-    N_phi = 2500
-    dphi = 2*pi / N_phi
-    taus = np.arange(0, M_len, dt_sim)
-    
-    r_bins = r_bounds(r_disc, r_o, N_disc)
-    rs = np.asarray([(r_bins[i+1]+r_bins[i])/2 for i in range(len(r_bins)-1)])
-    drs = [(r_bins[i] -r_bins[i+1]) for i in range(len(r_bins)-1)]
-
-    tf = np.zeros(len(taus))
-    for i in range(N_disc):
-        for j in range(N_phi):
-            t = rs[i] * R_g / c * (1.0 - np.sin(incl)*np.cos(-pi/2. + dphi*j))
-            tindex = int(t/dt_sim)+1
-            f_r = drs[i]/(r_disc-r_o)
-            f_phi = dphi/(2*pi)
-            tf[tindex] += f_r*f_phi
-    
-    N_freq = 2 ** int(log2(M_len/dt_sim))
-    TF_raw = np.conj(fourier.fft(tf)[1:N_freq/2 + 1])
-    
-    return TF_raw
-    
-def TFrebin(TF_raw,fbins, dt_sim=2**-13):
-    '''Rebin the transfer function and exclue those parts of the TF which fall outside the range of the data.'''
-    N_freq = 2 ** int(log2(M_len/dt_sim))
-    freqs = abs(fourier.fftfreq(N_freq, dt_sim))[1:N_freq/2+1]
-    
-    TF_selected = np.array(())
-    
-    inds = np.digitize(freqs, fbins)
-    
-    for i in range(1, inds[-1]+1):
-        if i in inds:
-            i_min = min(np.argwhere(inds == i))[0]
-            i_max = max(np.argwhere(inds == i))[0]
-            TF_selected = np.append(TF_selected, TF_raw[i_min])
-            if i_min != i_max:
-                TF_selected = np.append(TF_selected, TF_raw[i_max])
-                
-    return TF_selected
-   
 
 def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_vard1,\
              wid1, r_o, r_i, D_DS, D_SH, S_m, r_disc, f_disc_V):
+    '''The main function where we use the above defined subroutines to compute the power spectra, lag-frequency and lag-energy spectra of our data, producing the main plots found in the paper.'''
+    
+    
     
     '''Set up the central radii (rs) and thicknesses (drs) of the annuli in the modelled flow.'''
     r_bins = r_bounds(r_o, r_i, N_r)
@@ -688,14 +701,17 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     F_all_raw, F_disc_raw, F_soft_raw, F_hard_raw, F_refl_raw_soft, F_refl_raw_hard = \
                      F_all_raw/(E_raw), F_disc_raw/E_raw, F_soft_raw/(E_raw),  F_hard_raw/(E_raw), F_refl_raw_soft/(E_raw), F_refl_raw_hard/(E_raw)
     
-    absorption = np.interp(E_raw, X1s, Y1s)
+    absorption = np.interp(E_raw, X1s, Y1s) # Compute the absorption of the original SED for every energy bin.
     rmfs = rmf_func(E_raw, E_raw)
     rmfs = np.transpose(rmfs)
     
-    for i in range(len(rmfs[:,0])):
+    for i in range(len(rmfs[:,0])): # Compute the 2-D redistribution matrix function (details can be found in Ingram+ 2019), so that our model is wrapped around the same instrument response as the data.
         if not np.sum(rmfs[i])==0:
             rmfs[i] = rmfs[i] / np.sum(rmfs[i])
         
+    
+    '''Compute the raw flux from each component as observed by XMM for input into our model.
+       This step ensures that our model deals with the energy spectrum in exactly the same way as the data.'''
     F_disc_raw = np.dot(F_disc_raw*absorption,rmfs)
     F_hard_raw = np.dot(F_hard_raw*absorption, rmfs)
     F_soft_raw = np.dot(F_soft_raw*absorption, rmfs)
@@ -713,6 +729,7 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     F_refl_soft = np.asarray([F_refl_raw_soft[digitized == i].mean() for i in range(1, len(bins))])
     F_refl_hard = np.asarray([F_refl_raw_hard[digitized == i].mean() for i in range(1, len(bins))])
     
+    '''Discard any NaN values from arrays at response edges.'''
     dE = dE[np.logical_not(np.isnan(E_range))]
     F_all = F_all[np.logical_not(np.isnan(E_range))]
     F_disc = F_disc[np.logical_not(np.isnan(E_range))]
@@ -774,7 +791,7 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     for x in range(N_r):
         r = rs[x]
         dr = drs[x]
-        emissivities[x] = emissivity(r, x, r_o,Amp1, gamma, r_vard1, wid1)
+        emissivities[x] = emissivity(r, r_o,Amp1, gamma, r_vard1, wid1)
 
     '''Compute the spectral transition radii (r_DS, r_SH) such that equation 3 in MDD19'''
     '''is satisfied /as well as possible/ given the radial discretization.'''
