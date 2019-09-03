@@ -1,5 +1,4 @@
 import matplotlib
-matplotlib.use('Agg')
 from pylab import *
 import numpy as np
 import numpy.fft as fourier
@@ -394,43 +393,43 @@ f_aves_HI_obs, f_aves_IH_obs, tau_means_HI_obs, tau_means_IH_obs, dtau_HI_obs, d
 
 fig = plt.figure(figsize=(3, 5))
 gs = gridspec.GridSpec(5, 1)
-ax3 = plt.subplot(gs[0:2, :])
-ax4 = plt.subplot(gs[2, :])
-ax5 = plt.subplot(gs[3, :])
-ax6 = plt.subplot(gs[4, :])
+ax1 = plt.subplot(gs[0:2, :])
+ax2 = plt.subplot(gs[2, :])
+ax3 = plt.subplot(gs[3, :])
+ax4 = plt.subplot(gs[4, :])
 
-ax3.fill_between(freqs_binned, fP_s_obs_low - fdP_s_obs_low, fP_s_obs_low + fdP_s_obs_low, color = 'pink', alpha = 1, label = '3-5kev data')
-ax3.fill_between(freqs_binned, fP_s_obs_int - fdP_s_obs_int, fP_s_obs_int + fdP_s_obs_int, color = 'green', alpha = 0.35, label = '10-20kev data')
-ax3.fill_between(freqs_binned, fP_s_obs_hi - fdP_s_obs_hi, fP_s_obs_hi + fdP_s_obs_hi, color = 'blue', alpha = 0.35, label = '20-35kev data')
-ax3.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
-ax3.set_ylim(0.0002, 0.035)
+ax1.fill_between(freqs_binned, fP_s_obs_low - fdP_s_obs_low, fP_s_obs_low + fdP_s_obs_low, color = 'pink', alpha = 1, label = '3-5kev data')
+ax1.fill_between(freqs_binned, fP_s_obs_int - fdP_s_obs_int, fP_s_obs_int + fdP_s_obs_int, color = 'green', alpha = 0.35, label = '10-20kev data')
+ax1.fill_between(freqs_binned, fP_s_obs_hi - fdP_s_obs_hi, fP_s_obs_hi + fdP_s_obs_hi, color = 'blue', alpha = 0.35, label = '20-35kev data')
+ax1.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
+ax1.set_ylim(0.0002, 0.035)
+ax1.set_xlim(0.045,40)
+ax1.set_yscale('log')
+ax1.set_xscale('log')
+ax1.set_ylabel(r'$fP_f$ $([rms/mean]^2)$')
+
+ax2.set_xlim(0.045,40)
+ax2.set_ylabel(r'$Int-Low$ $lag$ $(s)$')
+ax2.set_yscale('log')
+ax2.set_xscale('log')
+ax2.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
+ax2.errorbar(freqs_binned, taus_IL, dtaus_IL, fmt = 's', color = 'darkred', ecolor = 'darkred',capsize = 0)
+
 ax3.set_xlim(0.045,40)
 ax3.set_yscale('log')
 ax3.set_xscale('log')
-ax3.set_ylabel(r'$fP_f$ $([rms/mean]^2)$')
+ax3.set_xscale('log')
+ax3.set_ylabel(r'$High-Int$ $lag$ $(s)$')
+ax3.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
+ax3.errorbar(freqs_binned, taus_HI, dtaus_HI, fmt = 'D', color = 'darkgreen', ecolor = 'darkgreen',capsize = 0)
 
 ax4.set_xlim(0.045,40)
-ax4.set_ylabel(r'$Int-Low$ $lag$ $(s)$')
+ax4.set_ylabel(r'$High-Low$ $lag$ $(s)$')
 ax4.set_yscale('log')
 ax4.set_xscale('log')
+ax4.set_xlabel(r'$f$ $(Hz)$')
 ax4.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
-ax4.errorbar(freqs_binned, taus_IL, dtaus_IL, fmt = 's', color = 'darkred', ecolor = 'darkred',capsize = 0)
-
-ax5.set_xlim(0.045,40)
-ax5.set_yscale('log')
-ax5.set_xscale('log')
-ax5.set_xscale('log')
-ax5.set_ylabel(r'$High-Int$ $lag$ $(s)$')
-ax5.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
-ax5.errorbar(freqs_binned, taus_HI, dtaus_HI, fmt = 'D', color = 'darkgreen', ecolor = 'darkgreen',capsize = 0)
-
-ax6.set_xlim(0.045,40)
-ax6.set_ylabel(r'$High-Low$ $lag$ $(s)$')
-ax6.set_yscale('log')
-ax6.set_xscale('log')
-ax6.set_xlabel(r'$f$ $(Hz)$')
-ax6.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
-ax6.errorbar(freqs_binned, taus_HL, dtaus_HL, fmt = 'o', color = 'darkblue', ecolor = 'darkblue',capsize = 0)
+ax4.errorbar(freqs_binned, taus_HL, dtaus_HL, fmt = 'o', color = 'darkblue', ecolor = 'darkblue',capsize = 0)
 
 #######################################################################################
 #+++++++++++++ The model subroutines and main function (output). +++++++++++++++++++++#
@@ -1301,88 +1300,90 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
 
     return tot_low_binned, tot_int_binned, tot_hi_binned, lag_LH_binned, lag_IH_binned, lag_LI_binned, lag_slo_energy, dlag_slo_energy, lag_mid_energy, dlag_mid_energy, lag_fas_energy, dlag_fas_energy, E_range2
 
+
 Z = outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC,r_vard1,\
              wid1, r_o, r_i, D_DS, D_SH, S_m, r_disc, f_disc_V)
 
-tot_low, tot_int, tot_hi, lag_LH, lag_IH, lag_LI, lag_slo_energy, dlag_slo_energy, lag_mid_energy, dlag_mid_energy, lag_fas_energy, dlag_fas_energy, E_range2 =\
-    Z[0], Z[1], Z[2], Z[3], Z[4], Z[5], Z[6], Z[7], Z[8], Z[9], Z[10], Z[11], Z[12]
+tot_low, tot_int, tot_hi, lag_LH, lag_IH, lag_LI, lag_slo_energy, dlag_slo_energy, lag_mid_energy, dlag_mid_energy, lag_fas_energy, dlag_fas_energy, E_range2 = Z
 
 
 '''Plot all results as shown in the paper!'''
 fig = plt.figure(figsize=(3, 5))
 gs = gridspec.GridSpec(5, 1)
-ax3 = plt.subplot(gs[0:2, :])
-ax4 = plt.subplot(gs[2, :])
-ax5 = plt.subplot(gs[3, :])
-ax6 = plt.subplot(gs[4, :])
+ax1 = plt.subplot(gs[0:2, :])
+ax2 = plt.subplot(gs[2, :])
+ax3 = plt.subplot(gs[3, :])
+ax4 = plt.subplot(gs[4, :])
 
-ax3.plot(freqs_binned, freqs_binned*tot_low, c= 'r', marker='x')
-ax3.plot(freqs_binned, freqs_binned*tot_int, c= 'g', marker='x')                   
-ax3.plot(freqs_binned, freqs_binned*tot_hi, c= 'b', marker='x')
-ax3.fill_between(freqs_binned, fP_s_obs_low - fdP_s_obs_low, fP_s_obs_low + fdP_s_obs_low, color = 'pink', alpha = 1, label = '3-5kev data')
-ax3.fill_between(freqs_binned, fP_s_obs_int - fdP_s_obs_int, fP_s_obs_int + fdP_s_obs_int, color = 'green', alpha = 0.35, label = '10-20kev data')
-ax3.fill_between(freqs_binned, fP_s_obs_hi - fdP_s_obs_hi, fP_s_obs_hi + fdP_s_obs_hi, color = 'blue', alpha = 0.35, label = '20-35kev data')
-ax3.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
-ax3.set_ylim(0.0002, 0.035)
+ax1.plot(freqs_binned, freqs_binned*tot_low, c= 'r', marker='x')
+ax1.plot(freqs_binned, freqs_binned*tot_int, c= 'g', marker='x')                   
+ax1.plot(freqs_binned, freqs_binned*tot_hi, c= 'b', marker='x')
+ax1.fill_between(freqs_binned, fP_s_obs_low - fdP_s_obs_low, fP_s_obs_low + fdP_s_obs_low, color = 'pink', alpha = 1, label = '3-5kev data')
+ax1.fill_between(freqs_binned, fP_s_obs_int - fdP_s_obs_int, fP_s_obs_int + fdP_s_obs_int, color = 'green', alpha = 0.35, label = '10-20kev data')
+ax1.fill_between(freqs_binned, fP_s_obs_hi - fdP_s_obs_hi, fP_s_obs_hi + fdP_s_obs_hi, color = 'blue', alpha = 0.35, label = '20-35kev data')
+ax1.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
+ax1.set_ylim(0.0002, 0.035)
+ax1.set_xlim(0.045,40)
+ax1.set_yscale('log')
+ax1.set_xscale('log')
+ax1.set_ylabel(r'$fP_f$ $([rms/mean]^2)$')
+
+ax2.set_xlim(0.045,40)
+ax2.set_ylabel(r'$Int-Low$ $lag$ $(s)$')
+ax2.set_yscale('log')
+ax2.set_xscale('log')
+ax2.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
+ax2.plot(freqs_binned, lag_LI, c= 'r')
+ax2.errorbar(freqs_binned, taus_IL, dtaus_IL, fmt = 's', color = 'darkred', ecolor = 'darkred',capsize = 0)
+
 ax3.set_xlim(0.045,40)
 ax3.set_yscale('log')
 ax3.set_xscale('log')
-ax3.set_ylabel(r'$fP_f$ $([rms/mean]^2)$')
+ax3.set_xscale('log')
+ax3.set_ylabel(r'$High-Int$ $lag$ $(s)$')
+ax3.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
+ax3.errorbar(freqs_binned, taus_HI, dtaus_HI, fmt = 'D', color = 'darkgreen', ecolor = 'darkgreen',capsize = 0)
+ax3.plot(freqs_binned, lag_IH, c= 'g')
 
 ax4.set_xlim(0.045,40)
-ax4.set_ylabel(r'$Int-Low$ $lag$ $(s)$')
+ax4.set_ylabel(r'$High-Low$ $lag$ $(s)$')
 ax4.set_yscale('log')
 ax4.set_xscale('log')
+ax4.set_xlabel(r'$f$ $(Hz)$')
 ax4.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
-ax4.plot(freqs_binned, lag_LI, c= 'r')
-ax4.errorbar(freqs_binned, taus_IL, dtaus_IL, fmt = 's', color = 'darkred', ecolor = 'darkred',capsize = 0)
+ax4.errorbar(freqs_binned, taus_HL, dtaus_HL, fmt = 'o', color = 'darkblue', ecolor = 'darkblue',capsize = 0)
+ax4.plot(freqs_binned, lag_LH, c= 'b')
+plt.show()
 
-ax5.set_xlim(0.045,40)
-ax5.set_yscale('log')
+
+f, (ax5, ax6, ax7) = plt.subplots(3, sharex=True)
+
 ax5.set_xscale('log')
-ax5.set_xscale('log')
-ax5.set_ylabel(r'$High-Int$ $lag$ $(s)$')
-ax5.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
-ax5.errorbar(freqs_binned, taus_HI, dtaus_HI, fmt = 'D', color = 'darkgreen', ecolor = 'darkgreen',capsize = 0)
-ax5.plot(freqs_binned, lag_IH, c= 'g')
-
-ax6.set_xlim(0.045,40)
-ax6.set_ylabel(r'$High-Low$ $lag$ $(s)$')
-ax6.set_yscale('log')
-ax6.set_xscale('log')
-ax6.set_xlabel(r'$f$ $(Hz)$')
-ax6.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
-ax6.errorbar(freqs_binned, taus_HL, dtaus_HL, fmt = 'o', color = 'darkblue', ecolor = 'darkblue',capsize = 0)
-ax6.plot(freqs_binned, lag_LH, c= 'b')
-
-
-
-f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
-
-ax1.set_xscale('log')
-ax1.set_xlabel('E (keV)')
-ax1.set_ylabel('lag(s)')
+ax5.set_xlabel('E (keV)')
+ax5.set_ylabel('lag(s)')
 data_raw = np.genfromtxt('lagenergy/O1_lagE_002_03Hz.dat', skip_header = 1)
 E_BDM, dE_BDM, slolag, dslolag = data_raw[:,0], data_raw[:,1], data_raw[:,2], data_raw[:,3]
-ax1.errorbar(E_BDM, slolag, dslolag, xerr = dE_BDM, color = 'darkred', label = 'data',alpha = 0.5)
-ax1.fill_between(E_BDM, lag_slo_energy-dlag_slo_energy, lag_slo_energy+dlag_slo_energy, color = 'red', alpha = 1., label = 'model')
-ax1.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
+ax5.errorbar(E_BDM, slolag, dslolag, xerr = dE_BDM, color = 'darkred', label = 'data',alpha = 0.5)
+ax5.fill_between(E_BDM, lag_slo_energy-dlag_slo_energy, lag_slo_energy+dlag_slo_energy, color = 'red', alpha = 1., label = 'model')
+ax5.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
 
-ax2.set_xscale('log')
-ax2.set_xlabel('E $(keV)$')
-ax2.set_ylabel('lag(s)')
+ax6.set_xscale('log')
+ax6.set_xlabel('E $(keV)$')
+ax6.set_ylabel('lag(s)')
 data_raw = np.genfromtxt('lagenergy/O1_lagE_03_1Hz.dat', skip_header = 1)
 E_BDM, dE_BDM, midlag, dmidlag = data_raw[:,0], data_raw[:,1], data_raw[:,2], data_raw[:,3]
-ax2.errorbar(E_BDM, midlag, dmidlag, xerr = dE_BDM, color = 'darkgreen', label = 'data',alpha = 1.)
-ax2.fill_between(E_BDM, lag_mid_energy-dlag_mid_energy, lag_mid_energy+dlag_mid_energy, color = 'green', alpha = 0.5, label = 'model')
-ax2.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
+ax6.errorbar(E_BDM, midlag, dmidlag, xerr = dE_BDM, color = 'darkgreen', label = 'data',alpha = 1.)
+ax6.fill_between(E_BDM, lag_mid_energy-dlag_mid_energy, lag_mid_energy+dlag_mid_energy, color = 'green', alpha = 0.5, label = 'model')
+ax6.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
 
-ax3.set_xscale('log')
-ax3.set_xlabel('E $(keV)$')
-ax3.set_ylabel('lag(s)')
+ax7.set_xscale('log')
+ax7.set_xlabel('E $(keV)$')
+ax7.set_ylabel('lag(s)')
 data_raw = np.genfromtxt('lagenergy/O1_lagE_1_30Hz.dat', skip_header = 1)
 E_BDM, dE_BDM, faslag, dfaslag = data_raw[:,0], data_raw[:,1], data_raw[:,2], data_raw[:,3]
-ax3.errorbar(E_BDM, faslag, dfaslag, xerr = dE_BDM, color = 'darkblue', label = 'data',alpha = 1.)
-ax3.fill_between(E_BDM, lag_fas_energy-dlag_fas_energy, lag_fas_energy+dlag_fas_energy, color = 'b', alpha = 0.5, label = 'model')
-ax3.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
+ax7.errorbar(E_BDM, faslag, dfaslag, xerr = dE_BDM, color = 'darkblue', label = 'data',alpha = 1.)
+ax7.fill_between(E_BDM, lag_fas_energy-dlag_fas_energy, lag_fas_energy+dlag_fas_energy, color = 'b', alpha = 0.5, label = 'model')
+ax7.tick_params(axis = 'both', bottom='on', top='on', left='on', right='on', direction= 'in')
 f.tight_layout()
+
+plt.show()
