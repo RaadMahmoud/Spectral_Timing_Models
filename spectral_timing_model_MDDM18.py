@@ -746,8 +746,8 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     L_Int_Hard_Refl = np.sum((F_refl_hard*dE)[i_Eint_min:i_Eint_max])
     L_Int_Soft_Rep = np.sum((F_disc*dE)[i_Eint_min:i_Eint_max]) * f_soft_rep
     L_Int_Hard_Rep = np.sum((F_disc*dE)[i_Eint_min:i_Eint_max]) * f_hard_rep
-    L_Int_Disc_V = np.sum((F_disc*dE)[i_Eint_min:i_Eint_max]) * f_disc_V
-    L_Int_Disc_C = np.sum((F_disc*dE)[i_Eint_min:i_Eint_max]) - L_Int_Soft_Rep - L_Int_Hard_Rep- L_Int_Disc_V
+    L_Int_Disc_V = np.sum((F_disc*dE)[i_Eint_min:i_Eint_max]) * f_disc_V                                        #The disc component between r_o and r_DS which has intrinsic variability in the intermediate energy band.
+    L_Int_Disc_C = np.sum((F_disc*dE)[i_Eint_min:i_Eint_max]) - L_Int_Soft_Rep - L_Int_Hard_Rep- L_Int_Disc_V   #The disc component beyond r_o which produces constant emission in the intermediate energy band.
         
     
     '''The same as above for the high band.'''
@@ -761,11 +761,11 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     L_Hi_Disc_C = np.sum((F_disc*dE)[i_Ehi_min:i_Ehi_max]) - L_Hi_Soft_Rep - L_Hi_Hard_Rep- L_Hi_Disc_V
 
 
-    '''SET UP: the transfer function from the flow to the disc.'''
+    '''Set up the transfer function from the flow to the disc.'''
     TF_raw = transferfn(r_disc, r_o)
     TF = TFrebin(TF_raw, fbins = data_fbins)
     TF2 = np.conj(TF) * TF
-    reTF = real(TF)
+    reTF = real(TF) # Split the transfer function into real and imaginary parts to be applied to the fourier space calculations later.
     imTF = imag(TF)
 
 
@@ -805,15 +805,13 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
         r = rs[x]
         dr = drs[x]
         emiss = emissivities[x]
+        weights = np.append(weights, emiss * r * dr)        
         if x < i_DS:
             weightsout += emiss * r * dr
-            weights = np.append(weights, emiss * r * dr)
         elif i_DS <= x < i_SH:
             weightsmid +=  emiss * r * dr
-            weights = np.append(weights, emiss * r * dr)
         else:
             weightsin += emiss * r *dr
-            weights = np.append(weights,  emiss * r * dr)
     
     weights[:i_DS] = weights[:i_DS] / weightsout
     weights[i_DS:i_SH] = weights[i_DS:i_SH] / weightsmid
@@ -865,7 +863,7 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
         r = rs[i]
         dr = drs[i]
         if i <i_DS:
-            v_r = r * f_alpha(r, B_disc, m_disc)
+            v_r = r * f_alpha(r, B_disc, m_disc) # Propagation velocity between annuli at r.
         else:
             v_r = r * f_alpha(r, B_flow, m_flow)
             
@@ -1114,7 +1112,7 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     reTF = real(TF)
     imTF = imag(TF) 
     
-    
+    '''Extract and rebin the energy range for our lag-E spectra.'''
     data_raw = np.genfromtxt('lagenergy/O1_lagE_1_30Hz.dat', skip_header = 1)
     E_BDM, dE_BDM = data_raw[:,0], data_raw[:,1]
     
@@ -1142,6 +1140,8 @@ def outputs(Amp1, gamma, B_disc, m_disc, B_flow, m_flow, F_vard1, F_vardC, r_var
     
     i_ref_min, i_ref_max = min(np.argwhere(E_range2 >= 0.5))[0], len(E_range2)-1
     
+    '''Compute the energy weights in each lag-E bin for processing through the fourier-space model.'''
+    '''Produce weights for every energy band, and the reference band.'''
     L_Soft = (F_soft*dE)
     L_Hard = (F_hard*dE)        
     L_Soft_Refl = F_refl_soft*dE
@@ -1291,6 +1291,7 @@ tot_low, tot_int, tot_hi, lag_LH, lag_IH, lag_LI, lag_slo_energy, dlag_slo_energ
     Z[0], Z[1], Z[2], Z[3], Z[4], Z[5], Z[6], Z[7], Z[8], Z[9], Z[10], Z[11], Z[12]
 
 
+'''Plot all results as shown in the paper!'''
 fig = plt.figure(figsize=(3, 5))
 gs = gridspec.GridSpec(5, 1)
 ax3 = plt.subplot(gs[0:2, :])
